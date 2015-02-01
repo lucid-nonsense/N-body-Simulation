@@ -2,6 +2,8 @@ import numpy as np
 import os
 import datetime
 from itertools import combinations
+import sys
+import time
 G = 6.67e-11
 
 class Simulation(object):
@@ -38,14 +40,34 @@ class Simulation(object):
 	def evolve(self):
 		self._evolver(self.r, self.v, self.m, self.a, self.dt, self.static)
 
-	def start(self, record_int=None):
-		for t in xrange(0, int(self.T/self.dt)):
+	def start(self, record_int=None, load_bar=None, timer=True):
+		L = np.ceil(self.T/self.dt)
+		if load_bar is None:
+			load_bar = int(L * 0.01)
+		t_0 = time.clock()
+		l = 0
+		print ' '*28, 'left | elapsed | average'
+		for t in xrange(0, int(L)):
 			self.evolve()
 			if record_int is not None:
 				if record_int == 0:
 					self.record()
 				elif not t % record_int:
 					self.record()
+			if load_bar:
+				if not t % load_bar:
+					perc = t / L
+					if timer:
+						elapsed = time.clock() - t_0
+						per = elapsed / (t+1)
+						left = per * (L - t)
+						extra = '{:.2f} |   {:.2f}  | {:.2e}'.format(left/60, elapsed/60, per/60)
+					else: extra = t
+					sys.stdout.write('\r'+' '*l)
+					string = '[{: <20}] {:.1%} {}'.format('='*(int(perc*20)+1), perc, extra)
+					sys.stdout.write('\r' + string)
+					l = len(string)
+		print
 
 
 	def append_file(self, f, x):
@@ -86,12 +108,14 @@ def get_potential(r_array, m_list):
 		u_array[i] = U
 	return u_array
 		
-def plot_xyprojection(sim_obj):
+def plot_xyprojection(sim_obj, E=None):
+	print 'reading and plotting...',
 	r = read_output(sim_obj.rf, sim_obj.N)
 	v = read_output(sim_obj.vf, sim_obj.N)
-	K = get_kinetic(v, sim_obj.m)
-	U = get_potential(r, sim_obj.m)
-	E = K + U
+	if E is None:
+		K = get_kinetic(v, sim_obj.m)
+		U = get_potential(r, sim_obj.m)
+		E = K + U
 
 	f = plt.figure()
 	f.set_facecolor('w')
@@ -100,6 +124,7 @@ def plot_xyprojection(sim_obj):
 	ax.set_ylabel(r'Relative Energy Error ($\frac{E - E_0}{E_0}$)')
 	ax.set_xlabel(r'Time $t$')
 	
+	dist = None
 	if sim_obj.N == 2:
 		_r = r[:, 1, :]
 		ax2 = ax.twinx()
@@ -113,12 +138,14 @@ def plot_xyprojection(sim_obj):
 	for p in xrange(r.shape[1]):
 		x,y = r[:, p, 0], r[:, p, 1]
 		ax3.scatter(x, y, marker='.', alpha=0.5, s=S.m[p]*100, color=colors[p])
+
+	return r, v, E, dist
 	
 
 if __name__ == '__main__':
 	import matplotlib.pyplot as plt
 	from algorithms import forward_euler
-	S = Simulation(forward_euler, dt=0.0001, T=2)
+	S = Simulation(forward_euler, dt=0.00001, T=2.714080941082802*2)
 	S.initialise_particles(N=2)
 	S.r[1] = [1, 0, 0]
 	S.v[1] = [0, 0.5, 0]
@@ -126,7 +153,11 @@ if __name__ == '__main__':
 	S.static[0] = True
 
 	rs, vs = S.open_files('output')
-	S.start(2)
+	S.start(1000)
 	S.close_files()
-	plot_xyprojection(S)
+
+	R, V, E, D = plot_xyprojection(S)
+
+	print E[-1] - E[0], np.linalg.norm(R[-1, 1, :] - R[0, 1, :])
+
 	plt.show()
