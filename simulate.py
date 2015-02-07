@@ -74,12 +74,13 @@ class Simulation(object):
 	def append_file(self, f, x):
 		np.savetxt(f, x)
 	
-	def open_files(self, d):
+	def get_files(self, d, _open=True):
 		date = datetime.datetime.now().strftime('%y-%m-%d-%H-%M-%S')
 		base = '{}-{}-{}-{}'.format(self.dt, self.T, self.N, date)
 		rf = os.path.join(d, base+'-r.dat')
 		vf = os.path.join(d, base+'-v.dat')
-		self.record_r, self.record_v = open(rf, 'a'), open(vf, 'a')
+		if _open:
+			self.record_r, self.record_v = open(rf, 'a'), open(vf, 'a')
 		self.rf, self.vf = rf, vf
 		return rf, vf
 
@@ -109,13 +110,20 @@ def get_potential(r_array, m_list):
 		u_array[i] = U
 	return u_array
 		
-def plot_xyprojection(sim_obj, E=None):
+def plot_xyprojection(sim_obj=None, r=None, v=None, N=None, m=None, E=None):
 	print 'reading and plotting...',
-	r = read_output(sim_obj.rf, sim_obj.N)
-	v = read_output(sim_obj.vf, sim_obj.N)
+	if sim_obj is None:
+		r = read_output(r, N)
+		v = read_output(v, N)
+
+	else:
+		r = read_output(sim_obj.rf, sim_obj.N)
+		v = read_output(sim_obj.vf, sim_obj.N)
+		m = sim_obj.m
+		N = sim_obj.N
 	if E is None:
-		K = get_kinetic(v, sim_obj.m)
-		U = get_potential(r, sim_obj.m)
+		K = get_kinetic(v, m)
+		U = get_potential(r, m)
 		E = K + U
 
 	f = plt.figure()
@@ -126,7 +134,7 @@ def plot_xyprojection(sim_obj, E=None):
 	ax.set_xlabel(r'Time $t$')
 	
 	dist = None
-	if sim_obj.N == 2:
+	if N == 2:
 		_r = r[:, 1, :]
 		ax2 = ax.twinx()
 		dist = np.linalg.norm(_r, axis=1)
@@ -147,16 +155,18 @@ if __name__ == '__main__':
 	import matplotlib.pyplot as plt
 	from algorithms import *
 	Int = LeapFrog()
-	S = Simulation(Int, dt=0.001, T=10)#2.714080941082802*2)
+	S = Simulation(Int, dt=0.01, T=10)#2.714080941082802*2)
 	S.initialise_particles(N=2)
 	S.r[0] = [0,0,0]
 	S.r[1] = [1,0,0]
 	S.v[1] = [0,0.5,0]
 	S.static[0] = True
-	# S.v[2] = [1,0,0]
 
-	rs, vs = S.open_files('output')
-	S.start(1)
+	rs, vs = S.get_files('output')
+	try:
+		S.start(1)
+	except:
+		pass
 	S.close_files()
 
 	R, V, E, D = plot_xyprojection(S)
