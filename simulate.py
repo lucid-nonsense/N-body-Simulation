@@ -38,9 +38,10 @@ class Simulation(object):
 			self.N = r.shape[0]
 
 	def evolve(self):
-		self._evolver(self.r, self.v, self.m, self.a, self.dt, self.static)
+		self._evolver.iterate(self.r, self.v, self.m, self.a, self.dt, self.static)
 
 	def start(self, record_int=None, load_bar=None, timer=True):
+		self._evolver.setup(self.r, self.v, self.m, self.a, self.dt, self.static)
 		L = np.ceil(self.T/self.dt)
 		if load_bar is None:
 			load_bar = int(L * 0.01)
@@ -137,23 +138,25 @@ def plot_xyprojection(sim_obj, E=None):
 	print r.shape
 	for p in xrange(r.shape[1]):
 		x,y = r[:, p, 0], r[:, p, 1]
-		ax3.scatter(x, y, marker='.', alpha=0.5, s=S.m[p]*100, color=colors[p])
+		ax3.scatter(x, y, alpha=0.5, color=colors[p])
 
 	return r, v, E, dist
 	
 
 if __name__ == '__main__':
 	import matplotlib.pyplot as plt
-	from algorithms import forward_euler
-	S = Simulation(forward_euler, dt=0.00001, T=2.714080941082802*2)
+	from algorithms import *
+	Int = LeapFrog()
+	S = Simulation(Int, dt=0.001, T=10)#2.714080941082802*2)
 	S.initialise_particles(N=2)
-	S.r[1] = [1, 0, 0]
-	S.v[1] = [0, 0.5, 0]
-
+	S.r[0] = [0,0,0]
+	S.r[1] = [1,0,0]
+	S.v[1] = [0,0.5,0]
 	S.static[0] = True
+	# S.v[2] = [1,0,0]
 
 	rs, vs = S.open_files('output')
-	S.start(1000)
+	S.start(1)
 	S.close_files()
 
 	R, V, E, D = plot_xyprojection(S)
